@@ -32,6 +32,7 @@ body {
     background: color(bg);
     border-right: color(border) 1px solid;
     position: relative;
+    overflow-y: auto;
 }
 
 #ab .left-pane {
