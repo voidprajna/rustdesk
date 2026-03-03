@@ -288,7 +288,8 @@ jobs:
   build-for-windows-sciter:
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
     runs-on: ${{ matrix.job.os }}
-    if: false
+    # Temporarily disable this action due to additional test is needed.
+    # if: false
     strategy:
       fail-fast: false
       matrix:
@@ -776,6 +777,7 @@ jobs:
     needs:
       - build-for-macOS
       - build-for-windows-flutter
+      - build-for-windows-sciter
     runs-on: ubuntu-latest
     if: ${{ inputs.upload-artifact }}
     steps:
@@ -797,9 +799,15 @@ jobs:
           name: rustdesk-unsigned-windows-x86_64
           path: ./windows-x86_64/
 
+      - name: Download Artifacts
+        uses: actions/download-artifact@master
+        with:
+          name: rustdesk-unsigned-windows-x86
+          path: ./windows-x86/
+
       - name: Combine unsigned app
         run: |
-          tar czf rustdesk-${{ env.VERSION }}-unsigned.tar.gz *.dmg windows-x86_64
+          tar czf rustdesk-${{ env.VERSION }}-unsigned.tar.gz *.dmg windows-x86_64 windows-x86
 
       - name: Publish unsigned app
         uses: softprops/action-gh-release@v1
@@ -816,7 +824,27 @@ jobs:
       fail-fast: false
       matrix:
         job:
-          - { arch: aarch64, target: aarch64-linux-android, os: ubuntu-24.04, reltype: release, suffix: "" }
+          - {
+              arch: aarch64,
+              target: aarch64-linux-android,
+              os: ubuntu-24.04,
+              reltype: release,
+              suffix: "",
+            }
+          - {
+              arch: armv7,
+              target: armv7-linux-androideabi,
+              os: ubuntu-24.04,
+              reltype: release,
+              suffix: "",
+            }
+          - {
+              arch: x86_64,
+              target: x86_64-linux-android,
+              os: ubuntu-24.04,
+              reltype: release,
+              suffix: "",
+            }
     steps:
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@main
@@ -1083,7 +1111,7 @@ jobs:
   build-rustdesk-android-universal:
     needs: [build-rustdesk-android]
     name: build rustdesk android universal apk
-    if: false
+    if: ${{ inputs.upload-artifact }}
     runs-on: ubuntu-24.04
     env:
       reltype: release
@@ -1273,7 +1301,22 @@ jobs:
       matrix:
         # use a high level qemu-user-static
         job:
-          - { arch: x86_64, target: x86_64-unknown-linux-gnu, distro: ubuntu18.04, on: ubuntu-22.04, deb_arch: amd64, vcpkg-triplet: x64-linux }
+          - {
+              arch: x86_64,
+              target: x86_64-unknown-linux-gnu,
+              distro: ubuntu18.04,
+              on: ubuntu-22.04,
+              deb_arch: amd64,
+              vcpkg-triplet: x64-linux,
+            }
+          - {
+              arch: aarch64,
+              target: aarch64-unknown-linux-gnu,
+              distro: ubuntu18.04,
+              on: ubuntu-22.04-arm,
+              deb_arch: arm64,
+              vcpkg-triplet: arm64-linux,
+            }
     steps:
       - name: Export GitHub Actions cache environment variables
         uses: actions/github-script@v6
@@ -1513,8 +1556,36 @@ jobs:
               mv "$name" "${name%%.deb}-${{ matrix.job.arch }}.deb"
             done
 
+            # rpm package
+            echo -e "start packaging fedora package"
+            pushd /workspace
+            case ${{ matrix.job.arch }} in
+              aarch64)
+                sed -i "s/linux\/x64/linux\/arm64/g" ./res/rpm-flutter.spec
+                ;;
+            esac
+            HBB=`pwd` rpmbuild ./res/rpm-flutter.spec -bb
+            pushd ~/rpmbuild/RPMS/${{ matrix.job.arch }}
+            for name in rustdesk*??.rpm; do
+                mv "$name" /workspace/"${name%%.rpm}.rpm"
+            done
+
+            # rpm suse package
+            echo -e "start packaging suse package"
+            pushd /workspace
+            case ${{ matrix.job.arch }} in
+              aarch64)
+                sed -i "s/linux\/x64/linux\/arm64/g" ./res/rpm-flutter-suse.spec
+                ;;
+            esac
+            HBB=`pwd` rpmbuild ./res/rpm-flutter-suse.spec -bb
+            pushd ~/rpmbuild/RPMS/${{ matrix.job.arch }}
+            for name in rustdesk*??.rpm; do
+                mv "$name" /workspace/"${name%%.rpm}-suse.rpm"
+            done
+
       - name: Publish debian/rpm package
-        if: false
+        if: env.UPLOAD_ARTIFACT == 'true'
         uses: softprops/action-gh-release@v1
         with:
           prerelease: true
@@ -1534,7 +1605,7 @@ jobs:
       # old arch image does not make sense for arch since it is "arch" which always update to date
       # and failed to makepkg arm64 on x86_64
       - name: Patch archlinux PKGBUILD
-        if: false
+        if: matrix.job.arch == 'x86_64' && env.UPLOAD_ARTIFACT == 'true'
         run: |
           sed -i "s/x86_64/${{ matrix.job.arch }}/g" res/PKGBUILD
           if [[ "${{ matrix.job.arch }}" == "aarch64" ]]; then
@@ -1542,7 +1613,7 @@ jobs:
           fi
 
       - name: Build archlinux package
-        if: false
+        if: matrix.job.arch == 'x86_64' && env.UPLOAD_ARTIFACT == 'true'
         uses: rustdesk-org/arch-makepkg-action@master
         with:
           packages:
@@ -1550,7 +1621,7 @@ jobs:
             cd res && HBB=`pwd`/.. FLUTTER=1 makepkg -f
 
       - name: Publish archlinux package
-        if: false
+        if: matrix.job.arch == 'x86_64' && env.UPLOAD_ARTIFACT == 'true'
         uses: softprops/action-gh-release@v1
         with:
           prerelease: true
@@ -1559,7 +1630,7 @@ jobs:
             res/rustdesk-${{ env.VERSION }}*.zst
 
   build-rustdesk-linux-sciter:
-    if: false
+    if: ${{ inputs.upload-artifact }}
     runs-on: ${{ matrix.job.on }}
     name: build-rustdesk-linux-sciter ${{ matrix.job.target }}
     strategy:
@@ -1795,6 +1866,7 @@ jobs:
       matrix:
         job:
           - { target: x86_64-unknown-linux-gnu, arch: x86_64 }
+          - { target: aarch64-unknown-linux-gnu, arch: aarch64 }
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
@@ -1838,13 +1910,36 @@ jobs:
     name: Build flatpak ${{ matrix.job.target }}${{ matrix.job.suffix }}
     needs:
       - build-rustdesk-linux
+      - build-rustdesk-linux-sciter
     runs-on: ${{ matrix.job.on }}
-    if: false
+    if: ${{ inputs.upload-artifact }}
     strategy:
       fail-fast: false
       matrix:
         job:
-          - { target: x86_64-unknown-linux-gnu, distro: ubuntu22.04, on: ubuntu-22.04, arch: x86_64, suffix: "" }
+          - {
+              target: x86_64-unknown-linux-gnu,
+              # https://github.com/ostreedev/ostree/commit/4bac96a8c817beda37448f9b8c662162bb619981
+              distro: ubuntu22.04,
+              on: ubuntu-22.04,
+              arch: x86_64,
+              suffix: "",
+            }
+          - {
+              target: x86_64-unknown-linux-gnu,
+              distro: ubuntu22.04,
+              on: ubuntu-22.04,
+              arch: x86_64,
+              suffix: "-sciter",
+            }
+          - {
+              target: aarch64-unknown-linux-gnu,
+              # try out newer flatpak since error of "error: Nothing matches org.freedesktop.Platform in remote flathub"
+              distro: ubuntu22.04,
+              on: ubuntu-22.04-arm,
+              arch: aarch64,
+              suffix: "",
+            }
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
