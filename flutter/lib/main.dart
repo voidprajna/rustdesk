@@ -126,6 +126,24 @@ Future<void> initEnv(String appType) async {
   // for convenience, use global FFI on mobile platform
   // focus on multi-ffi on desktop first
   await initGlobalFFI();
+  // Ensure default for "check update on startup" is disabled on first run
+  // Only apply to non-custom clients; write local option 'N' if unset.
+  try {
+    if (!bind.isCustomClient()) {
+      final v = bind.mainGetLocalOption(key: kOptionEnableCheckUpdate);
+      if (v.isEmpty) {
+        await mainSetLocalBoolOption(kOptionEnableCheckUpdate, false);
+      }
+      // Set default view style to adaptive on first run
+      final viewStyle = bind.mainGetUserDefaultOption(key: kOptionViewStyle);
+      if (viewStyle.isEmpty) {
+        await bind.mainSetUserDefaultOption(
+            key: kOptionViewStyle, value: kRemoteViewStyleAdaptive);
+      }
+    }
+  } catch (_) {
+    // ignore initialization errors
+  }
   // await Firebase.initializeApp();
   _registerEventHandler();
   // Update the system theme.

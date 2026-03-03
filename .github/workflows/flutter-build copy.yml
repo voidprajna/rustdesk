@@ -1,3 +1,12 @@
+# 说明
+# - 此文件是 flutter-build.yml 的“注释版副本”，便于阅读与维护。
+# - 不建议直接用于 CI 运行；请以 flutter-build.yml 为准。
+# - 如何仅保留一个版本：
+#   * Windows：保留 x86_64 项，删除/注释其它矩阵项或禁用相关 Job。
+#   * Android：保留 aarch64（arm64-v8a），删除 armv7/x86_64 等矩阵项。
+#   * Linux：保留一个常见架构（推荐 x86_64）并关闭额外打包（Flatpak/Arch 等）。
+#   * macOS：当前保留 x86_64 与 aarch64，不在“只保留一个”的范围内。
+# - 如何快速禁用某个 Job：在该 Job 下添加 `if: false`。
 name: Build the flutter version of the RustDesk
 
 on:
@@ -66,6 +75,8 @@ jobs:
       fail-fast: false
 
   build-for-windows-flutter:
+    # Windows（Flutter）构建：默认仅启用 x86_64-msvc
+    # 如需只保留 x64，保持当前矩阵即可；如需再精简，删除多余矩阵项。
     name: ${{ matrix.job.target }}
     needs: [build-RustDeskTempTopMostWindow, generate-bridge]
     runs-on: ${{ matrix.job.os }}
@@ -286,6 +297,8 @@ jobs:
 
   # The fallback for the flutter version, we use Sciter for 32bit Windows.
   build-for-windows-sciter:
+    # Windows（Sciter）构建：32 位 i686 备用方案
+    # 若不需要 32 位版本，可在此处设置 `if: false` 或删除该 Job。
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
     runs-on: ${{ matrix.job.os }}
     # Temporarily disable this action due to additional test is needed.
@@ -436,6 +449,7 @@ jobs:
             ./SignOutput/rustdesk-*.exe
 
   build-rustdesk-ios:
+    # iOS 构建：aarch64-apple-ios，仅产出 ipa/lib
     if: ${{ inputs.upload-artifact }}
     name: build rustdesk ios ipa
     runs-on: ${{ matrix.job.os }}
@@ -556,6 +570,8 @@ jobs:
 
 
   build-for-macOS:
+    # macOS 构建：同时支持 x86_64 与 aarch64
+    # 通常不做“只保留一个”的精简，保持双架构兼容。
     name: ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
     needs: [generate-bridge]
@@ -774,6 +790,8 @@ jobs:
             rustdesk*-${{ matrix.job.arch }}.dmg
 
   publish_unsigned:
+    # 汇总未签名产物并打包上传的流程
+    # 如不需要可在此处设置 `if: false`。
     needs:
       - build-for-macOS
       - build-for-windows-flutter
@@ -817,6 +835,8 @@ jobs:
           files: rustdesk-${{ env.VERSION }}-unsigned.tar.gz
 
   build-rustdesk-android:
+    # Android 构建矩阵
+    # 只保留 arm64-v8a（aarch64-linux-android）时，删除 armv7/x86_64 项即可。
     needs: [generate-bridge]
     name: build rustdesk android apk ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
@@ -1293,6 +1313,8 @@ jobs:
             signed-apk/rustdesk-${{ env.VERSION }}-universal${{ env.suffix }}.apk
 
   build-rustdesk-linux:
+    # Linux（Flutter 引擎）构建矩阵
+    # 只保留一个通用版本时，建议仅保留 x86_64，并禁用 Flatpak/Arch 等额外打包流程。
     needs: [generate-bridge]
     name: build rustdesk linux ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.on }}
@@ -1857,6 +1879,8 @@ jobs:
           path: rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}-sciter.deb
 
   build-appimage:
+    # AppImage 打包：基于 .deb 重新打包生成 AppImage
+    # 若只发布一种“通用”格式，可仅保留 AppImage 并关闭其他发布。
     name: Build appimage ${{ matrix.job.target }}
     needs: [build-rustdesk-linux]
     runs-on: ubuntu-22.04
@@ -1907,6 +1931,8 @@ jobs:
             ./appimage/rustdesk-${{ env.VERSION }}-*.AppImage
 
   build-flatpak:
+    # Flatpak 打包：基于 .deb 的再打包流程
+    # 如要精简，仅保留 AppImage 或 .deb，可将本 Job 设为 `if: false`。
     name: Build flatpak ${{ matrix.job.target }}${{ matrix.job.suffix }}
     needs:
       - build-rustdesk-linux
@@ -1992,6 +2018,7 @@ jobs:
             flatpak/rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}${{ matrix.job.suffix }}.flatpak
 
   build-rustdesk-web:
+    # Web 端构建已禁用（if: False），仅保留作为示例/后续启用的参考。
     if: False
     name: build-rustdesk-web
     runs-on: ubuntu-22.04
