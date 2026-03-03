@@ -708,11 +708,6 @@ class App: Reactor.Component
                             {key_confirmed ? <input type="text" readonly value={formatId(get_id())}/> : translate("Generating ...")}
                         </div>}
                         {!outgoing_only && <PasswordArea />}
-                        {/* --- 新增内容开始 --- */}
-                        <div style="margin-top: 1.5em; text-align: center; font-weight: bold; color: #333; font-size: 0.9em;">
-                            珠海泰为电子有限公司
-                        </div>
-                        {/* --- 新增内容结束 --- */}
                     </div>
                     {(!is_win || handler.is_installed() || disable_installation) ? "" : <InstallMe />}
                     {software_update_url && !disable_installation ? <UpdateMe /> : ""}
