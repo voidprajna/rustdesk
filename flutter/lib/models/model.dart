@@ -2194,9 +2194,14 @@ class CanvasModel with ChangeNotifier {
   updateSize() => _size = getSize();
 
   updateViewStyle({refreshMousePos = true, notify = true}) async {
-    final style = await bind.sessionGetViewStyle(sessionId: sessionId);
-    if (style == null) {
-      return;
+    var style = await bind.sessionGetViewStyle(sessionId: sessionId);
+    if (style == null || style.isEmpty) {
+      var def = bind.mainGetUserDefaultOption(key: kOptionViewStyle);
+      if (def.isEmpty) {
+        def = kRemoteViewStyleAdaptive;
+      }
+      await bind.sessionSetViewStyle(sessionId: sessionId, value: def);
+      style = def;
     }
 
     updateSize();
